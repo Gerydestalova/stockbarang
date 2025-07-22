@@ -350,7 +350,6 @@ if ($type == 'pdf' || $type == 'excel') {
                     $sampai = $_GET['sampai'];
                 ?>
 
-                <!-- Ringkasan Stok -->
 <!-- Ringkasan Stok -->
 <div class="card mb-4">
     <div class="card-header"><i class="fas fa-box"></i> Ringkasan Stok per Barang</div>
@@ -368,28 +367,34 @@ if ($type == 'pdf' || $type == 'excel') {
             </thead>
             <tbody>
             <?php
-$queryBarang = mysqli_query($conn, "SELECT * FROM stock");
+ $queryBarang = mysqli_query($conn, "SELECT * FROM stock");
 while ($barang = mysqli_fetch_array($queryBarang)) {
     $idbarang = $barang['idbarang'];
     $namabarang = $barang['namabarang'];
-    $stok_awal = $barang['jumlah']; // ini ambil stok asli di tabel stock
+    $jumlah_saat_ini = $barang['jumlah'] ?? 0;
 
-    // Hitung total masuk & keluar sampai tanggal filter
+    // Hitung stok awal
+    $stok_masuk_sebelum = mysqli_fetch_array(mysqli_query($conn, 
+        "SELECT IFNULL(SUM(qty),0) as total FROM masuk WHERE idbarang='$idbarang' AND tanggal < '$dari 00:00:00'"))['total'];
+    $stok_keluar_sebelum = mysqli_fetch_array(mysqli_query($conn, 
+        "SELECT IFNULL(SUM(qty),0) as total FROM keluar WHERE idbarang='$idbarang' AND tanggal < '$dari 00:00:00'"))['total'];
+    $stok_awal = $stok_masuk_sebelum - $stok_keluar_sebelum;
+
+    // Hitung selama periode
     $masuk_periode = mysqli_fetch_array(mysqli_query($conn, 
         "SELECT IFNULL(SUM(qty),0) as total FROM masuk WHERE idbarang='$idbarang' AND tanggal BETWEEN '$dari 00:00:00' AND '$sampai 23:59:59'"))['total'];
     $keluar_periode = mysqli_fetch_array(mysqli_query($conn, 
         "SELECT IFNULL(SUM(qty),0) as total FROM keluar WHERE idbarang='$idbarang' AND tanggal BETWEEN '$dari 00:00:00' AND '$sampai 23:59:59'"))['total'];
 
-    // Hitung jumlah saat ini (stok awal + masuk - keluar)
-    $jumlah_saat_ini = $stok_awal + $masuk_periode - $keluar_periode;
-    $jumlah_saat_ini = max(0, $jumlah_saat_ini); // biar gak minus
+    $stok_akhir = $stok_awal + $masuk_periode - $keluar_periode;
 
     echo "<tr>
         <td>$namabarang</td>
         <td>" . number_format($stok_awal) . "</td>
         <td>" . number_format($masuk_periode) . "</td>
         <td>" . number_format($keluar_periode) . "</td>
-        <td>" . number_format($jumlah_saat_ini) . "</td>
+        <td>" . number_format($stok_akhir) . "</td>
+        <td><b>" . number_format($jumlah_saat_ini) . "</b></td>
     </tr>";
 }
 
@@ -398,6 +403,7 @@ while ($barang = mysqli_fetch_array($queryBarang)) {
         </table>
     </div>
 </div>
+
 
                 <!-- Barang Masuk -->
                 <div class="card mb-4">
